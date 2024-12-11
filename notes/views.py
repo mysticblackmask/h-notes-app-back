@@ -45,9 +45,7 @@ class Login(APIView):
                 })
             else:
                 return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
-
         except CustomUser.DoesNotExist:
-            # Handle case where user does not exist
             return Response({"error": "User does not exist"}, status=status.HTTP_400_BAD_REQUEST)
 
 class NoteCreate(APIView):
