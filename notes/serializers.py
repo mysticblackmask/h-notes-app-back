@@ -2,16 +2,16 @@ from rest_framework import serializers
 from .models import CustomUser, Note
 from django.contrib.auth import authenticate
 
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomUser
-        fields = ['username', 'surname']
-
 class NoteSerializer(serializers.ModelSerializer):
-    user = UserSerializer()
+    user = serializers.StringRelatedField(read_only=True)
+    user_surname = serializers.SerializerMethodField()
+
     class Meta:
         model = Note
-        fields = ['noteid', 'user', 'title', 'text', 'audio', 'create_date', 'update_date']
+        fields = ['noteid','user','user_surname', 'title', 'text', 'audio', 'create_date', 'update_date']
+
+    def get_user_surname(self, obj):
+        return obj.user.surname if obj.user else None
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, min_length=8, error_messages={'min_length': 'Password must be at least 8 characters long.'})

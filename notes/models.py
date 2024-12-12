@@ -67,6 +67,8 @@ class Note(models.Model):
     audio = models.FileField(upload_to='notes/audio/', null=True, blank=True)
     create_date = models.DateTimeField(default=timezone.now)
     update_date = models.DateTimeField(auto_now=True)
+    is_pinned = models.BooleanField(default=False)
+    is_trashed = models.BooleanField(default=False)
 
     def __str__(self):
         return self.title
