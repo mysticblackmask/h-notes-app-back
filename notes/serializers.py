@@ -8,7 +8,7 @@ class NoteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Note
-        fields = ['noteid','user','user_surname', 'title', 'text', 'audio', 'create_date', 'update_date']
+        fields = ['noteid','user','user_surname', 'title', 'text', 'audio', 'create_date', 'update_date', 'is_pinned', 'is_trashed']
 
     def get_user_surname(self, obj):
         return obj.user.surname if obj.user else None

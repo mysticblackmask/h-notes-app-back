@@ -9,6 +9,7 @@ from .models import Note, CustomUser
 from django.contrib.auth.hashers import check_password
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+from rest_framework.pagination import PageNumberPagination
 
 class Register(APIView):
     permission_classes = [AllowAny]
@@ -81,7 +82,6 @@ class Logout(APIView):
 
 class NoteCreate(APIView):
     permission_classes = [IsAuthenticated]
-
     def post(self, request):
         serializer = NoteSerializer(data=request.data)
         if serializer.is_valid():
@@ -89,29 +89,58 @@ class NoteCreate(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class NotePagination(PageNumberPagination):
+    page_size_query_param = 'perpage'  # Allow clients to specify the number of items per page
+    max_page_size = 100  # Max number of items per page
+
 class NoteRead(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def post(self, request):
+        page = request.data.get('page', 1)
+        perpage = 4
+
         notes = Note.objects.filter(user=request.user)
-        serializer = NoteSerializer(notes, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        is_pinned = request.data.get('is_pinned', None)
+        is_trashed = request.data.get('is_trashed', None)
+
+        if is_pinned is not None:
+            notes = notes.filter(is_pinned=is_pinned)
+
+        if is_trashed is not None:
+            notes = notes.filter(is_trashed=is_trashed)
+        response_data={}
+        if page == 0:
+            # If page is 0, retrieve all notes (no pagination)
+            serializer = NoteSerializer(notes, many=True)
+            response_data = {
+                "total_count": notes.count(),  # Total number of notes
+                "results": serializer.data,    # All notes
+            }
+        else:
+            paginator = NotePagination()
+            paginator.page_size = perpage
+            result_page = paginator.paginate_queryset(notes, request)
+
+            serializer = NoteSerializer(result_page, many=True)
+
+            response_data = {
+                "total_count": paginator.page.paginator.count,
+                "results": serializer.data,
+            }
+        return Response(response_data, status=status.HTTP_200_OK)
 
 class NoteUpdate(APIView):
     permission_classes = [IsAuthenticated]
-
     def put(self, request, noteid):
         try:
             note = Note.objects.get(noteid=noteid, user=request.user)
-            data = {}
-            if 'title' in request.data:
-                data['title'] = request.data['title'].strip()
-            if 'text' in request.data:
-                data['text'] = request.data['text'].strip()
-
+            data = {
+                key: value for key, value in request.data.items()
+                if key in ['title', 'text', 'is_pinned', 'is_trashed']
+            }
             if not data:
                 return Response({"error": "No valid fields to update"}, status=status.HTTP_400_BAD_REQUEST)
-
             for field in data:
                 current_value = getattr(note, field)
                 new_value = data[field]
