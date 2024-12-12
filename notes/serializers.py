@@ -2,8 +2,13 @@ from rest_framework import serializers
 from .models import CustomUser, Note
 from django.contrib.auth import authenticate
 
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['username', 'surname']
 
 class NoteSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
     class Meta:
         model = Note
         fields = ['noteid', 'user', 'title', 'text', 'audio', 'create_date', 'update_date']

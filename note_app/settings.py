@@ -25,6 +25,8 @@ SECRET_KEY = 'django-insecure-u1w(ecn=5bk^8#ub)k(#xcoxmq%0ub(jfq#f44@xtai2d#e8s^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+AUTH_USER_MODEL = 'notes.CustomUser'
+
 ALLOWED_HOSTS = []
 
 APPEND_SLASH = False
@@ -37,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework_simplejwt.token_blacklist',
     'notes',
 ]
 

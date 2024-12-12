@@ -4,13 +4,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.hashers import make_password
 from .serializers import UserRegistrationSerializer
 from .serializers import NoteSerializer
 from .models import Note
 from .models import CustomUser
 from django.contrib.auth.hashers import check_password
 from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 
 class Register(APIView):
     permission_classes = [AllowAny]
@@ -26,7 +26,7 @@ class Register(APIView):
 class Login(APIView):
     permission_classes = [AllowAny]
     def post(self, request):
-        email = request.data.get('email')
+        identifier = request.data.get('identifier')
         password = request.data.get('password')
         if len(password) < 8:
             return Response({"error": "Password must be at least 8 characters long."}, status=status.HTTP_400_BAD_REQUEST)
@@ -48,10 +48,31 @@ class Login(APIView):
         except CustomUser.DoesNotExist:
             return Response({"error": "User does not exist"}, status=status.HTTP_400_BAD_REQUEST)
 
+class Logout(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            # Get the refresh token from the request data (sent by the client)
+            refresh_token = request.data.get('refresh_token')
+
+            if refresh_token is None:
+                return Response({"error": "No refresh token provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Blacklist the refresh token
+            token = RefreshToken(refresh_token)
+            token.blacklist()  # This will mark the refresh token as invalid
+
+            return Response({"message": "Successfully logged out."}, status=status.HTTP_200_OK)
+
+        except TokenError:
+            return Response({"error": "Invalid refresh token."}, status=status.HTTP_400_BAD_REQUEST)
+
 class NoteCreate(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        notes = Note.objects.filter(user=request.user)
         serializer = NoteSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(user=request.user)
