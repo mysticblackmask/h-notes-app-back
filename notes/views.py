@@ -10,6 +10,7 @@ from django.contrib.auth.hashers import check_password
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework.pagination import PageNumberPagination
+import re
 
 class Register(APIView):
     permission_classes = [AllowAny]
@@ -24,32 +25,39 @@ class Register(APIView):
 
 class Login(APIView):
     permission_classes = [AllowAny]
+
     def post(self, request):
-        identifier = request.data.get('identifier')
+        email = request.data.get('email')
         password = request.data.get('password')
+        print(email, password)
+        # Validate email format
+        email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+        if not re.match(email_regex, email):
+            return Response({"error": "Invalid email format."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate password length
         if len(password) < 8:
             return Response({"error": "Password must be at least 8 characters long."}, status=status.HTTP_400_BAD_REQUEST)
-        if len(identifier) < 6 and '@' not in identifier:
-            return Response({"error": "Username must be at least 6 characters long."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check user credentials
         try:
-            if '@' in identifier:
-                user = CustomUser.objects.get(email=identifier)
-            else:
-                user = CustomUser.objects.get(username=identifier)
+            user = CustomUser.objects.get(email=email)
             if check_password(password, user.password):
+                # Generate tokens
                 refresh = RefreshToken.for_user(user)
                 return Response({
                     'refresh': str(refresh),
                     'access': str(refresh.access_token),
-                })
+                }, status=status.HTTP_200_OK)
             else:
                 return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
         except CustomUser.DoesNotExist:
             return Response({"error": "User does not exist"}, status=status.HTTP_400_BAD_REQUEST)
 
 class GetToken(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
-        refresh_token = request.data.get('refresh_token')
+        refresh_token = request.data.get('refresh')
 
         if not refresh_token:
             return Response({"error": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -66,9 +74,10 @@ class GetToken(APIView):
             return Response({"error": "Invalid refresh token."}, status=status.HTTP_400_BAD_REQUEST)
 
 class Logout(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         try:
-            refresh_token = request.data.get('refresh_token')
+            refresh_token = request.data.get('refresh')
 
             if refresh_token is None:
                 return Response({"error": "No refresh token provided."}, status=status.HTTP_400_BAD_REQUEST)
@@ -93,13 +102,16 @@ class NotePagination(PageNumberPagination):
     page_size_query_param = 'perpage'  # Allow clients to specify the number of items per page
     max_page_size = 100  # Max number of items per page
 
+
 class NoteRead(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        page = request.data.get('page', 1)
-        perpage = 4
+        # Get pagination parameters from request.data
+        page = int(request.data.get('page', 1))  # Default to page 1 if not provided
+        perpage = int(request.data.get('perpage', 4))  # Default to 4 items per page if not provided
 
+        # Filter notes by user and optional filters
         notes = Note.objects.filter(user=request.user)
         is_pinned = request.data.get('is_pinned', None)
         is_trashed = request.data.get('is_trashed', None)
@@ -109,7 +121,8 @@ class NoteRead(APIView):
 
         if is_trashed is not None:
             notes = notes.filter(is_trashed=is_trashed)
-        response_data={}
+
+        response_data = {}
         if page == 0:
             # If page is 0, retrieve all notes (no pagination)
             serializer = NoteSerializer(notes, many=True)
@@ -118,16 +131,24 @@ class NoteRead(APIView):
                 "results": serializer.data,    # All notes
             }
         else:
+            # Use custom pagination
             paginator = NotePagination()
             paginator.page_size = perpage
-            result_page = paginator.paginate_queryset(notes, request)
 
+            # Mock query_params for paginator
+            request.query_params._mutable = True  # Make query_params mutable
+            request.query_params['page'] = page  # Add page parameter
+            request.query_params['perpage'] = perpage  # Add perpage parameter
+            request.query_params._mutable = False  # Make query_params immutable again
+
+            result_page = paginator.paginate_queryset(notes, request)
             serializer = NoteSerializer(result_page, many=True)
 
             response_data = {
                 "total_count": paginator.page.paginator.count,
                 "results": serializer.data,
             }
+
         return Response(response_data, status=status.HTTP_200_OK)
 
 class NoteUpdate(APIView):
@@ -158,6 +179,18 @@ class NoteUpdate(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Note.DoesNotExist:
             return Response({"error": "Note does not exist or does not belong to user"}, status=status.HTTP_404_NOT_FOUND)
+
+class NoteBulkUpdate(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        try:
+            updated_count = Note.objects.filter(user=request.user).update(is_trashed=True)
+            return Response({
+                "message": f"Successfully updated {updated_count} notes to is_trashed=true."
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class NoteDelete(APIView):
     permission_classes = [IsAuthenticated]
