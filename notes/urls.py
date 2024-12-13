@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import Register, Login, Logout, GetToken, NoteCreate, NoteRead, NoteUpdate, NoteDelete, DeleteAllData
+from .views import Register, Login, Logout, GetToken, NoteCreate, NoteRead, NoteUpdate, NoteBulkUpdate, NoteDelete, DeleteAllData
 
 urlpatterns = [
     path('register/', Register.as_view(), name='register'),
@@ -9,6 +9,7 @@ urlpatterns = [
     path('notes/create/', NoteCreate.as_view(), name='note-create'),
     path('notes/', NoteRead.as_view(), name='note-read'),
     path('notes/update/<int:noteid>/', NoteUpdate.as_view(), name='note-update'),
+    path('notes/update/', NoteBulkUpdate.as_view(), name='note-update'),
     path('notes/delete/<int:noteid>/', NoteDelete.as_view(), name='note-delete'),
     path('notes/delete/', DeleteAllData.as_view(), name='note-delete'),
 ]
