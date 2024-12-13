@@ -102,7 +102,6 @@ class NotePagination(PageNumberPagination):
     page_size_query_param = 'perpage'  # Allow clients to specify the number of items per page
     max_page_size = 100  # Max number of items per page
 
-
 class NoteRead(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -150,6 +149,23 @@ class NoteRead(APIView):
             }
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+class NoteReadDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, noteid):
+        try:
+            # Fetch the note by noteid and ensure it belongs to the authenticated user
+            note = Note.objects.get(noteid=noteid, user=request.user)
+        except Note.DoesNotExist:
+            return Response(
+                {"error": "Note not found or you do not have permission to access this note."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Serialize the note data
+        serializer = NoteSerializer(note)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class NoteUpdate(APIView):
     permission_classes = [IsAuthenticated]
