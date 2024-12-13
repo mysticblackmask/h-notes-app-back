@@ -5,6 +5,8 @@ from django.contrib.auth import authenticate
 class NoteSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)
     user_surname = serializers.SerializerMethodField()
+    create_date = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
+    update_date = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
 
     class Meta:
         model = Note
